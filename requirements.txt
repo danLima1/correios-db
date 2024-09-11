@@ -1,4 +1,4 @@
-Flask==2.3.2
-Flask-Cors==3.0.10
-sqlite3==0.0.1  # Para garantir que a integração com SQLite funcione
+Flask
+Flask-Cors
+sqlite3  # Para garantir que a integração com SQLite funcione
 gunicorn
