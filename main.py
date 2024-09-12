@@ -41,21 +41,23 @@ def is_valid_code(code):
     pattern = r"^BR\d{11}$"
     return re.match(pattern, code) is not None
 
+
 @app.route('/generate-code', methods=['GET'])
 def generate_code_route():
     code = generate_code()
 
     creation_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Incluindo horas e minutos para comparar com precisão
-    status1 = "Objeto postado"
-    location1 = "Manaus, TESTE"
-    delivery_date1 = "2024-10-01"
+    status1 = ("Objeto postado após o horário limite da unidade"
+               " Sujeito a encaminhamento no próximo dia útil")
+    location1 = "Manaus - AM"
+    delivery_date1 = datetime.now().strftime('%d/%m/%Y')
 
-    status2 = "Em trânsito para SP"
-    location2 = "Centro de Distribuição, Manaus"
+    status2 = "Objeto em transferência - por favor aguarde"
+    location2 = "de Unidade de Tratamento, Manaus - AM para Unidade de Tratamento,Sao paulo - SP"
     delivery_date2 = (datetime.now() + timedelta(minutes=2)).strftime('%Y-%m-%d %H:%M:%S')
 
-    status3 = "Objeto chegou em SP"
-    location3 = "Centro de Distribuição, SP"
+    status3 = "TESTE "
+    location3 = "TESTE"
     delivery_date3 = (datetime.now() + timedelta(minutes=4)).strftime('%Y-%m-%d %H:%M:%S')
 
     conn = get_db_connection()
