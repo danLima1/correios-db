@@ -27,7 +27,8 @@ def create_table():
                         status3 TEXT,
                         location3 TEXT,
                         delivery_date3 TEXT,
-                        creation_date TEXT NOT NULL
+                        creation_date TEXT NOT NULL,
+                        previsao_entrega TEXT
                     )''')
     conn.commit()
     conn.close()
@@ -46,33 +47,39 @@ def generate_code_route():
     code = generate_code()
 
     creation_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Incluindo horas e minutos para comparar com precisão
-    status1 = ("Objeto postado após o horário limite da unidade"
-               " Sujeito a encaminhamento no próximo dia útil")
+    status1 = ("Objeto postado após o horário limite da unidade")
     location1 = "Manaus - AM"
     delivery_date1 = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 
     # Alterando para 2 minutos para o segundo status
     status2 = "Objeto em transferência - por favor aguarde"
-    location2 = "de Unidade de Tratamento, Manaus - AM para Unidade de Tratamento, São Paulo - SP"
+    location2 = "de Unidade de Tratamento, Manaus - AM<br>para Unidade de Tratamento, Cajamar - SP"
     delivery_date2 = (datetime.now() + timedelta(minutes=2)).strftime('%d/%m/%Y %H:%M:%S')
 
     # Alterando para 4 minutos para o terceiro status
-    status3 = "TESTE"
-    location3 = "TESTE"
+    status3 = "Objeto em transferência - por favor aguarde"
+    location3 = "de Unidade de Tratamento, Cajamar - SP<br>para Unidade de Tratamento, São Paulo - SP"
     delivery_date3 = (datetime.now() + timedelta(minutes=4)).strftime('%d/%m/%Y %H:%M:%S')
+
+    # Previsão de entrega: 8 dias após a criação do código
+    previsao_entrega = (datetime.now() + timedelta(days=8)).strftime('%d/%m/%Y')
 
     conn = get_db_connection()
     conn.execute('''INSERT INTO tracking_codes (code, status1, location1, delivery_date1, 
                                                  status2, location2, delivery_date2,
                                                  status3, location3, delivery_date3,
-                                                 creation_date)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                                                 creation_date, previsao_entrega)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                  (code, status1, location1, delivery_date1, status2, location2, delivery_date2,
-                  status3, location3, delivery_date3, creation_date))
+                  status3, location3, delivery_date3, creation_date, previsao_entrega))  # Corrigido
     conn.commit()
     conn.close()
 
-    return jsonify({"code": code})
+    return jsonify({
+        "code": code,
+        "previsao_entrega": previsao_entrega
+    })
+
 
 @app.route('/consult-code', methods=['POST'])
 def consult_code_route():
@@ -97,7 +104,8 @@ def consult_code_route():
         "code": result["code"],
         "status1": result["status1"],
         "location1": result["location1"],
-        "delivery_date1": result["delivery_date1"]
+        "delivery_date1": result["delivery_date1"],
+        "previsao_entrega": result["previsao_entrega"]  # Inclui a previsão de entrega
     }
 
     # Se passaram 2 minutos, incluir o status2
