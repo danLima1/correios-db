@@ -41,8 +41,7 @@ def is_valid_code(code):
     pattern = r"^BR\d{11}$"
     return re.match(pattern, code) is not None
 
-
-@app.route('/generate-code', methods=['GET'])
+@app.route('/generate-code', methods=['POST'])
 def generate_code_route():
     code = generate_code()
 
@@ -50,13 +49,15 @@ def generate_code_route():
     status1 = ("Objeto postado após o horário limite da unidade"
                " Sujeito a encaminhamento no próximo dia útil")
     location1 = "Manaus - AM"
-    delivery_date1 = datetime.now().strftime('%d/%m/%Y')
+    delivery_date1 = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 
+    # Alterando para 2 minutos para o segundo status
     status2 = "Objeto em transferência - por favor aguarde"
-    location2 = "de Unidade de Tratamento, Manaus - AM para Unidade de Tratamento,Sao paulo - SP"
-    delivery_date2 = (datetime.now() + timedelta(minutes=2)).strftime('%Y-%m-%d %H:%M:%S')
+    location2 = "de Unidade de Tratamento, Manaus - AM para Unidade de Tratamento, São Paulo - SP"
+    delivery_date2 = (datetime.now() + timedelta(minutes=2)).strftime('%d/%m/%Y %H:%M:%S')
 
-    status3 = "TESTE "
+    # Alterando para 4 minutos para o terceiro status
+    status3 = "TESTE"
     location3 = "TESTE"
     delivery_date3 = (datetime.now() + timedelta(minutes=4)).strftime('%Y-%m-%d %H:%M:%S')
 
@@ -107,7 +108,7 @@ def consult_code_route():
             "delivery_date2": result["delivery_date2"]
         })
 
-    # Se passaram 4 minutos, incluir o status3
+    # Se passaram 4 minutos, incluir o status3 (TESTE)
     if time_passed >= 4:
         info.update({
             "status3": result["status3"],
@@ -117,6 +118,17 @@ def consult_code_route():
 
     return jsonify(info)
 
+# Rota para receber Webhook de venda e gerar código de rastreamento
+@app.route('/webhook', methods=['POST'])
+def webhook_route():
+    data = request.get_json()
+
+    # Aqui você pode validar o conteúdo do webhook (exemplo: checar se é uma venda válida)
+    if data.get("event") == "sale_created":
+        # Chama a função de gerar código
+        return generate_code_route()
+
+    return jsonify({"message": "Evento não tratado"}), 400
 
 if __name__ == '__main__':
     create_table()
