@@ -59,7 +59,7 @@ def generate_code_route():
     # Alterando para 4 minutos para o terceiro status
     status3 = "TESTE"
     location3 = "TESTE"
-    delivery_date3 = (datetime.now() + timedelta(minutes=4)).strftime('%Y-%m-%d %H:%M:%S')
+    delivery_date3 = (datetime.now() + timedelta(minutes=4)).strftime('%d/%m/%Y %H:%M:%S')
 
     conn = get_db_connection()
     conn.execute('''INSERT INTO tracking_codes (code, status1, location1, delivery_date1, 
