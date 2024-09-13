@@ -1,4 +1,4 @@
 Flask
 Flask-Cors
-  # Para garantir que a integração com SQLite funcione
+pytz
 gunicorn
