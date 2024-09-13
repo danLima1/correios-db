@@ -6,7 +6,9 @@ from flask_cors import CORS
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-CORS(app)
+
+# Configurar CORS para permitir apenas https://correios-nine.vercel.app
+CORS(app, origins=["https://correios-nine.vercel.app"])
 
 def get_db_connection():
     conn = sqlite3.connect('rastreamento.db')
@@ -80,7 +82,6 @@ def generate_code_route():
         "previsao_entrega": previsao_entrega
     })
 
-
 @app.route('/consult-code', methods=['POST'])
 def consult_code_route():
     data = request.get_json()
@@ -128,15 +129,53 @@ def consult_code_route():
 
 # Rota para receber Webhook de venda e gerar código de rastreamento
 @app.route('/webhook', methods=['POST'])
-def webhook_route():
+def webhook():
     data = request.get_json()
 
-    # Aqui você pode validar o conteúdo do webhook (exemplo: checar se é uma venda válida)
-    if data.get("event") == "sale_created":
-        # Chama a função de gerar código
-        return generate_code_route()
+    # Extraindo os dados relevantes do payload
+    payment_id = data.get('paymentId')
+    customer_info = data.get('customer', {})
+    customer_name = customer_info.get('name')
 
-    return jsonify({"message": "Evento não tratado"}), 400
+    if not payment_id or not customer_name:
+        return jsonify({"error": "Payload inválido, falta 'paymentId' ou 'customer_name'"}), 400
+
+    # Gerar o código de rastreamento automaticamente
+    code = generate_code()
+
+    creation_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Incluindo horas e minutos para comparar com precisão
+    status1 = ("Objeto postado após o horário limite da unidade")
+    location1 = "Manaus - AM"
+    delivery_date1 = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+
+    # Alterando para 2 minutos para o segundo status
+    status2 = "Objeto em transferência - por favor aguarde"
+    location2 = "de Unidade de Tratamento, Manaus - AM<br>para Unidade de Tratamento, Cajamar - SP"
+    delivery_date2 = (datetime.now() + timedelta(minutes=2)).strftime('%d/%m/%Y %H:%M:%S')
+
+    # Alterando para 4 minutos para o terceiro status
+    status3 = "Objeto em transferência - por favor aguarde"
+    location3 = "de Unidade de Tratamento, Cajamar - SP<br>para Unidade de Tratamento, São Paulo - SP"
+    delivery_date3 = (datetime.now() + timedelta(minutes=4)).strftime('%d/%m/%Y %H:%M:%S')
+
+    # Previsão de entrega: 8 dias após a criação do código
+    previsao_entrega = (datetime.now() + timedelta(days=8)).strftime('%d/%m/%Y')
+
+    conn = get_db_connection()
+    conn.execute('''INSERT INTO tracking_codes (code, status1, location1, delivery_date1, 
+                                                   status2, location2, delivery_date2,
+                                                   status3, location3, delivery_date3,
+                                                   creation_date, previsao_entrega)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                 (code, status1, location1, delivery_date1, status2, location2, delivery_date2,
+                  status3, location3, delivery_date3, creation_date, previsao_entrega))  # Corrigido
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "code": code,
+        "previsao_entrega": previsao_entrega
+    })
 
 if __name__ == '__main__':
     create_table()
