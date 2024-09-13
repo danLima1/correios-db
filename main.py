@@ -9,7 +9,7 @@ import pytz  # Biblioteca para lidar com fusos horários
 app = Flask(__name__)
 
 # Configurar CORS para permitir apenas https://correios-nine.vercel.app
-CORS(app, origins=["https://correios-nine.vercel.app"])
+CORS()
 
 # Definindo o fuso horário do Brasil
 br_tz = pytz.timezone('America/Sao_Paulo')
@@ -103,7 +103,13 @@ def consult_code_route():
     if result is None:
         return jsonify({"error": "Code not found"}), 404
 
-    creation_date = datetime.strptime(result["creation_date"], '%Y-%m-%d %H:%M:%S')
+    # Pegando o valor de creation_date do banco de dados (que é naive)
+    creation_date_naive = datetime.strptime(result["creation_date"], '%Y-%m-%d %H:%M:%S')
+
+    # Tornando o creation_date ciente do fuso horário (timezone-aware)
+    creation_date = br_tz.localize(creation_date_naive)
+
+    # Calcular a diferença de tempo entre o horário atual e a criação do código
     time_passed = (datetime.now(br_tz) - creation_date).total_seconds() / 60  # Diferença em minutos
 
     # Informações que sempre estarão presentes
@@ -132,6 +138,7 @@ def consult_code_route():
         })
 
     return jsonify(info)
+
 
 # Rota para receber Webhook de venda e gerar código de rastreamento
 @app.route('/webhook', methods=['POST'])
