@@ -9,7 +9,7 @@ import pytz  # Biblioteca para lidar com fusos horários
 app = Flask(__name__)
 
 # Configurar CORS para permitir apenas https://correios-nine.vercel.app
-CORS()
+CORS(app, resources={r"/*": {"origins": "https://correios-nine.vercel.app"}})
 
 # Definindo o fuso horário do Brasil
 br_tz = pytz.timezone('America/Sao_Paulo')
