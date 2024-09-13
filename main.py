@@ -59,14 +59,14 @@ def generate_code_route():
     location1 = "Manaus - AM"
     delivery_date1 = now.strftime('%d/%m/%Y %H:%M:%S')
 
-    # Alterando para 2 minutos para o segundo status
+    # Alterando para 2 dias para o segundo status
     status2 = "Objeto em transferência - por favor aguarde"
-    delivery_date2 = (now + timedelta(minutes=2)).strftime('%d/%m/%Y %H:%M:%S')
+    delivery_date2 = (now + timedelta(days=2)).strftime('%d/%m/%Y %H:%M:%S')
     location2 = "de Unidade de Tratamento, Manaus - AM<br>para Unidade de Tratamento, Cajamar - SP"
 
-    # Alterando para 4 minutos para o terceiro status
+    # Alterando para 4 dias para o terceiro status
     status3 = "Objeto em transferência - por favor aguarde"
-    delivery_date3 = (now + timedelta(minutes=4)).strftime('%d/%m/%Y %H:%M:%S')
+    delivery_date3 = (now + timedelta(days=4)).strftime('%d/%m/%Y %H:%M:%S')
     location3 = "de Unidade de Tratamento, Cajamar - SP<br>para Unidade de Tratamento, São Paulo - SP"
 
     # Previsão de entrega: 8 dias após a criação do código
@@ -110,7 +110,7 @@ def consult_code_route():
     creation_date = br_tz.localize(creation_date_naive)
 
     # Calcular a diferença de tempo entre o horário atual e a criação do código
-    time_passed = (datetime.now(br_tz) - creation_date).total_seconds() / 60  # Diferença em minutos
+    time_passed_days = (datetime.now(br_tz) - creation_date).total_seconds() / (60 * 60 * 24)  # Diferença em dias
 
     # Informações que sempre estarão presentes
     info = {
@@ -121,16 +121,16 @@ def consult_code_route():
         "previsao_entrega": result["previsao_entrega"]  # Inclui a previsão de entrega
     }
 
-    # Se passaram 2 minutos, incluir o status2
-    if time_passed >= 2:
+    # Se passaram 2 dias, incluir o status2
+    if time_passed_days >= 2:
         info.update({
             "status2": result["status2"],
             "location2": result["location2"],
             "delivery_date2": result["delivery_date2"]
         })
 
-    # Se passaram 4 minutos, incluir o status3
-    if time_passed >= 4:
+    # Se passaram 4 dias, incluir o status3
+    if time_passed_days >= 4:
         info.update({
             "status3": result["status3"],
             "location3": result["location3"],
@@ -163,14 +163,14 @@ def webhook():
     location1 = "Manaus - AM"
     delivery_date1 = now.strftime('%d/%m/%Y %H:%M:%S')
 
-    # Alterando para 2 minutos para o segundo status
+    # Alterando para 2 dias para o segundo status
     status2 = "Objeto em transferência - por favor aguarde"
-    delivery_date2 = (now + timedelta(minutes=2)).strftime('%d/%m/%Y %H:%M:%S')
+    delivery_date2 = (now + timedelta(days=2)).strftime('%d/%m/%Y %H:%M:%S')
     location2 = "de Unidade de Tratamento, Manaus - AM<br>para Unidade de Tratamento, Cajamar - SP"
 
-    # Alterando para 4 minutos para o terceiro status
+    # Alterando para 4 dias para o terceiro status
     status3 = "Objeto em transferência - por favor aguarde"
-    delivery_date3 = (now + timedelta(minutes=4)).strftime('%d/%m/%Y %H:%M:%S')
+    delivery_date3 = (now + timedelta(days=4)).strftime('%d/%m/%Y %H:%M:%S')
     location3 = "de Unidade de Tratamento, Cajamar - SP<br>para Unidade de Tratamento, São Paulo - SP"
 
     # Previsão de entrega: 8 dias após a criação do código
@@ -178,10 +178,10 @@ def webhook():
 
     conn = get_db_connection()
     conn.execute('''INSERT INTO tracking_codes (code, status1, location1, delivery_date1, 
-                                                   status2, location2, delivery_date2,
-                                                   status3, location3, delivery_date3,
-                                                   creation_date, previsao_entrega)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                                                 status2, location2, delivery_date2,
+                                                 status3, location3, delivery_date3,
+                                                 creation_date, previsao_entrega)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                  (code, status1, location1, delivery_date1, status2, location2, delivery_date2,
                   status3, location3, delivery_date3, creation_date, previsao_entrega))
     conn.commit()
