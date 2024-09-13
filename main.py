@@ -4,9 +4,15 @@ import re
 import sqlite3
 from flask_cors import CORS
 from datetime import datetime, timedelta
+import pytz  # Biblioteca para lidar com fusos horários
 
 app = Flask(__name__)
+
+# Configurar CORS para permitir apenas https://correios-nine.vercel.app
 CORS(app)
+
+# Definindo o fuso horário do Brasil
+br_tz = pytz.timezone('America/Sao_Paulo')
 
 def get_db_connection():
     conn = sqlite3.connect('rastreamento.db')
@@ -46,23 +52,25 @@ def is_valid_code(code):
 def generate_code_route():
     code = generate_code()
 
-    creation_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Incluindo horas e minutos para comparar com precisão
-    status1 = ("Objeto postado após o horário limite da unidade")
+    # Usar o horário atual no fuso horário do Brasil
+    now = datetime.now(br_tz)
+    creation_date = now.strftime('%Y-%m-%d %H:%M:%S')  # Incluindo horas e minutos
+    status1 = "Objeto postado após o horário limite da unidade"
     location1 = "Manaus - AM"
-    delivery_date1 = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+    delivery_date1 = now.strftime('%d/%m/%Y %H:%M:%S')
 
     # Alterando para 2 minutos para o segundo status
     status2 = "Objeto em transferência - por favor aguarde"
+    delivery_date2 = (now + timedelta(minutes=2)).strftime('%d/%m/%Y %H:%M:%S')
     location2 = "de Unidade de Tratamento, Manaus - AM<br>para Unidade de Tratamento, Cajamar - SP"
-    delivery_date2 = (datetime.now() + timedelta(minutes=2)).strftime('%d/%m/%Y %H:%M:%S')
 
     # Alterando para 4 minutos para o terceiro status
     status3 = "Objeto em transferência - por favor aguarde"
+    delivery_date3 = (now + timedelta(minutes=4)).strftime('%d/%m/%Y %H:%M:%S')
     location3 = "de Unidade de Tratamento, Cajamar - SP<br>para Unidade de Tratamento, São Paulo - SP"
-    delivery_date3 = (datetime.now() + timedelta(minutes=4)).strftime('%d/%m/%Y %H:%M:%S')
 
     # Previsão de entrega: 8 dias após a criação do código
-    previsao_entrega = (datetime.now() + timedelta(days=8)).strftime('%d/%m/%Y')
+    previsao_entrega = (now + timedelta(days=8)).strftime('%d/%m/%Y')
 
     conn = get_db_connection()
     conn.execute('''INSERT INTO tracking_codes (code, status1, location1, delivery_date1, 
@@ -71,7 +79,7 @@ def generate_code_route():
                                                  creation_date, previsao_entrega)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                  (code, status1, location1, delivery_date1, status2, location2, delivery_date2,
-                  status3, location3, delivery_date3, creation_date, previsao_entrega))  # Corrigido
+                  status3, location3, delivery_date3, creation_date, previsao_entrega))
     conn.commit()
     conn.close()
 
@@ -79,7 +87,6 @@ def generate_code_route():
         "code": code,
         "previsao_entrega": previsao_entrega
     })
-
 
 @app.route('/consult-code', methods=['POST'])
 def consult_code_route():
@@ -96,8 +103,14 @@ def consult_code_route():
     if result is None:
         return jsonify({"error": "Code not found"}), 404
 
-    creation_date = datetime.strptime(result["creation_date"], '%Y-%m-%d %H:%M:%S')
-    time_passed = (datetime.now() - creation_date).total_seconds() / 60  # Diferença em minutos
+    # Pegando o valor de creation_date do banco de dados (que é naive)
+    creation_date_naive = datetime.strptime(result["creation_date"], '%Y-%m-%d %H:%M:%S')
+
+    # Tornando o creation_date ciente do fuso horário (timezone-aware)
+    creation_date = br_tz.localize(creation_date_naive)
+
+    # Calcular a diferença de tempo entre o horário atual e a criação do código
+    time_passed = (datetime.now(br_tz) - creation_date).total_seconds() / 60  # Diferença em minutos
 
     # Informações que sempre estarão presentes
     info = {
@@ -116,7 +129,7 @@ def consult_code_route():
             "delivery_date2": result["delivery_date2"]
         })
 
-    # Se passaram 4 minutos, incluir o status3 (TESTE)
+    # Se passaram 4 minutos, incluir o status3
     if time_passed >= 4:
         info.update({
             "status3": result["status3"],
@@ -126,17 +139,58 @@ def consult_code_route():
 
     return jsonify(info)
 
+
 # Rota para receber Webhook de venda e gerar código de rastreamento
 @app.route('/webhook', methods=['POST'])
-def webhook_route():
+def webhook():
     data = request.get_json()
 
-    # Aqui você pode validar o conteúdo do webhook (exemplo: checar se é uma venda válida)
-    if data.get("event") == "sale_created":
-        # Chama a função de gerar código
-        return generate_code_route()
+    # Extraindo os dados relevantes do payload
+    payment_id = data.get('paymentId')
+    customer_info = data.get('customer', {})
+    customer_name = customer_info.get('name')
 
-    return jsonify({"message": "Evento não tratado"}), 400
+    if not payment_id or not customer_name:
+        return jsonify({"error": "Payload inválido, falta 'paymentId' ou 'customer_name'"}), 400
+
+    # Gerar o código de rastreamento automaticamente
+    code = generate_code()
+
+    # Usar o horário atual no fuso horário do Brasil
+    now = datetime.now(br_tz)
+    creation_date = now.strftime('%Y-%m-%d %H:%M:%S')  # Incluindo horas e minutos
+    status1 = "Objeto postado após o horário limite da unidade"
+    location1 = "Manaus - AM"
+    delivery_date1 = now.strftime('%d/%m/%Y %H:%M:%S')
+
+    # Alterando para 2 minutos para o segundo status
+    status2 = "Objeto em transferência - por favor aguarde"
+    delivery_date2 = (now + timedelta(minutes=2)).strftime('%d/%m/%Y %H:%M:%S')
+    location2 = "de Unidade de Tratamento, Manaus - AM<br>para Unidade de Tratamento, Cajamar - SP"
+
+    # Alterando para 4 minutos para o terceiro status
+    status3 = "Objeto em transferência - por favor aguarde"
+    delivery_date3 = (now + timedelta(minutes=4)).strftime('%d/%m/%Y %H:%M:%S')
+    location3 = "de Unidade de Tratamento, Cajamar - SP<br>para Unidade de Tratamento, São Paulo - SP"
+
+    # Previsão de entrega: 8 dias após a criação do código
+    previsao_entrega = (now + timedelta(days=8)).strftime('%d/%m/%Y')
+
+    conn = get_db_connection()
+    conn.execute('''INSERT INTO tracking_codes (code, status1, location1, delivery_date1, 
+                                                   status2, location2, delivery_date2,
+                                                   status3, location3, delivery_date3,
+                                                   creation_date, previsao_entrega)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                 (code, status1, location1, delivery_date1, status2, location2, delivery_date2,
+                  status3, location3, delivery_date3, creation_date, previsao_entrega))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "code": code,
+        "previsao_entrega": previsao_entrega
+    })
 
 if __name__ == '__main__':
     create_table()
