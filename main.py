@@ -139,19 +139,16 @@ def consult_code_route():
 
     return jsonify(info)
 
-
-# Rota para receber Webhook de venda e gerar código de rastreamento
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.get_json()
 
     # Extraindo os dados relevantes do payload
-    payment_id = data.get('paymentId')
     customer_info = data.get('customer', {})
     customer_name = customer_info.get('name')
 
-    if not payment_id or not customer_name:
-        return jsonify({"error": "Payload inválido, falta 'paymentId' ou 'customer_name'"}), 400
+    if not customer_name:
+        return jsonify({"error": "Payload inválido, falta 'customer_name'"}), 400
 
     # Gerar o código de rastreamento automaticamente
     code = generate_code()
