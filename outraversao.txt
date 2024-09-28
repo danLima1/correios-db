@@ -1,0 +1,75 @@
+from flask import Flask, request, jsonify
+import requests
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+app = Flask(__name__)
+
+def enviar_email(to_email, full_name, tracking_code):
+    from_email = "danieldelimamendes500@gmail.com"
+    from_name = "Daniel Mendes"
+    password = "gkpl qyto voyw foho"  # Senha do e-mail do remetente
+    smtp_server = "smtp.gmail.com"
+    smtp_port = 587
+
+    first_name = full_name.split()[0]
+    subject = "Código de Rastreamento da Sua Compra"
+
+    message_1 = f"Olá {first_name}, sua compra foi registrada! Aqui está o seu código de rastreamento:"
+    message_2 = f"{tracking_code}\n\nAcesse o site https://correios-nine.vercel.app para rastrear seu pedido."
+
+    # Construindo o e-mail
+    msg = MIMEMultipart()
+    msg['From'] = f"{from_name} <{from_email}>"
+    msg['To'] = to_email
+    msg['Subject'] = subject
+
+    body = f"{message_1}\n\n{message_2}"
+    msg.attach(MIMEText(body, 'plain'))
+
+    try:
+        # Conectando ao servidor SMTP e enviando o e-mail
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(from_email, password)
+        server.sendmail(from_email, to_email, msg.as_string())
+        server.quit()
+        print(f"E-mail enviado para {to_email}.")
+    except Exception as e:
+        print(f"Erro ao enviar e-mail: {str(e)}")
+
+@app.route('/webhook2', methods=['POST'])
+def webhook2():
+    data = request.json
+    customer = data.get('customer', {})
+    email = customer.get('email')
+    full_name = customer.get('name')
+
+    if not email or not full_name:
+        return jsonify({'status': 'error', 'message': 'Dados incompletos'}), 400
+
+    try:
+        # Enviando os dados para a API que gera o código de rastreamento
+        response = requests.post('https://correios-db-yiji.onrender.com/webhook', json=data)
+        print(f"Response status: {response.status_code}, Response content: {response.content.decode()}")
+
+        if response.status_code != 200:
+            return jsonify({'status': 'error', 'message': 'Falha ao gerar código de rastreamento'}), 500
+
+        tracking_data = response.json()
+        tracking_code = tracking_data.get('code')
+
+        if tracking_code:
+            # Enviando o e-mail para o cliente com o código de rastreamento
+            enviar_email(email, full_name, tracking_code)
+            return jsonify({'status': 'success', 'message': 'E-mail enviado com sucesso'}), 200
+        else:
+            return jsonify({'status': 'error', 'message': 'Código de rastreamento não encontrado'}), 500
+
+    except Exception as e:
+        print(f"Erro no processamento do webhook: {str(e)}")
+        return jsonify({'status': 'error', 'message': 'Erro interno do servidor'}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
